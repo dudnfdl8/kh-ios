@@ -13,8 +13,8 @@ jobs:
       CERT_PRIVATE_KEY: ${{ secrets.CERT_PRIVATE_KEY }}
       BUNDLE_ID: "com.qniweb.stamp"
       TEAM_ID: "8WJ2MA2C78"
-      XCODE_WORKSPACE: "국가유산스탬프.xcworkspace"
-      XCODE_SCHEME: "국가유산스탬프"
+      XCODE_WORKSPACE: "KHStamp.xcworkspace"
+      XCODE_SCHEME: "KHStamp"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

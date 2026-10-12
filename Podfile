@@ -3,8 +3,7 @@ platform :ios, '15.0'
 
 target '국가유산스탬프' do
   # Comment the next line if you don't want to use dynamic frameworks
-  use_frameworks!
-
+  use_frameworks! :linkage => :static
   # Add the pod for Firebase Cloud Messaging
   pod 'Firebase/Messaging'
 

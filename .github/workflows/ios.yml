@@ -36,7 +36,15 @@ jobs:
           xcode-project use-profiles
       - name: Build IPA
         run: |
-          xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "$XCODE_SCHEME"
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --disable-xcpretty
+      - name: Show xcodebuild log on failure
+        if: failure()
+        run: |
+          echo "===== last 200 lines of xcodebuild log ====="
+          tail -n 200 /tmp/xcodebuild_logs/*.log 2>/dev/null || echo "(no xcodebuild log found)"
       - name: Upload to TestFlight
         run: |
           app-store-connect publish --path "build/ios/ipa/*.ipa" --testflight

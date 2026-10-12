@@ -1,8 +1,6 @@
 name: iOS App Store
-
 on:
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: macos-14
@@ -10,6 +8,7 @@ jobs:
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.ASC_KEY_ID }}
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      CERT_PRIVATE_KEY: ${{ secrets.CERT_PRIVATE_KEY }}
       BUNDLE_ID: "com.qniweb.stamp"
       XCODE_WORKSPACE: "국가유산스탬프.xcworkspace"
       XCODE_SCHEME: "국가유산스탬프"
@@ -24,10 +23,10 @@ jobs:
         run: pip install codemagic-cli-tools
       - name: Install CocoaPods dependencies
         run: pod install
-      - name: Set up code signing (create cert & profile)
+      - name: Set up code signing (reuse fixed cert key)
         run: |
           keychain initialize
-          openssl genrsa -out /tmp/cert_key.pem 2048
+          printf '%s' "$CERT_PRIVATE_KEY" > /tmp/cert_key.pem
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --certificate-key @file:/tmp/cert_key.pem \

@@ -6,19 +6,23 @@ workflows:
     integrations:
       app_store_connect: ASC
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.qniweb.stamp
       vars:
         XCODE_WORKSPACE: "국가유산스탬프.xcworkspace"
         XCODE_SCHEME: "국가유산스탬프"
+        BUNDLE_ID: "com.qniweb.stamp"
       xcode: latest
       cocoapods: default
     scripts:
       - name: Install CocoaPods dependencies
         script: pod install
-      - name: Set up provisioning profiles
-        script: xcode-project use-profiles
+      - name: Set up code signing (create cert & profile if missing)
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build IPA
         script: |
           xcode-project build-ipa \

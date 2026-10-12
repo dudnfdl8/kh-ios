@@ -1,0 +1,45 @@
+name: iOS App Store
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.ASC_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      BUNDLE_ID: "com.qniweb.stamp"
+      XCODE_WORKSPACE: "국가유산스탬프.xcworkspace"
+      XCODE_SCHEME: "국가유산스탬프"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Codemagic CLI tools
+        run: pip install codemagic-cli-tools
+      - name: Install CocoaPods dependencies
+        run: pod install
+      - name: Set up code signing (create cert & profile if missing)
+        run: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build IPA
+        run: |
+          xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "$XCODE_SCHEME"
+      - name: Upload to TestFlight
+        run: |
+          app-store-connect publish --path "build/ios/ipa/*.ipa" --testflight
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: ignore

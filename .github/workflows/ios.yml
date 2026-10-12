@@ -1,6 +1,8 @@
 name: iOS App Store
+
 on:
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: macos-14
@@ -10,6 +12,7 @@ jobs:
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
       CERT_PRIVATE_KEY: ${{ secrets.CERT_PRIVATE_KEY }}
       BUNDLE_ID: "com.qniweb.stamp"
+      TEAM_ID: "8WJ2MA2C78"
       XCODE_WORKSPACE: "국가유산스탬프.xcworkspace"
       XCODE_SCHEME: "국가유산스탬프"
     steps:
@@ -23,8 +26,10 @@ jobs:
         run: pip install codemagic-cli-tools
       - name: Install CocoaPods dependencies
         run: pod install
-      - name: Set up code signing (reuse fixed cert key)
+      - name: Prepare signing (API key + reuse cert in keychain)
         run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
           keychain initialize
           printf '%s' "$CERT_PRIVATE_KEY" > /tmp/cert_key.pem
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
@@ -32,25 +37,47 @@ jobs:
             --certificate-key @file:/tmp/cert_key.pem \
             --create
           keychain add-certificates
-          xcode-project use-profiles
-      - name: Build IPA
+      - name: Archive (automatic signing)
         run: |
-          xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --disable-xcpretty
-      - name: Show xcodebuild log on failure
-        if: failure()
+          xcodebuild -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            archive
+      - name: Export IPA
         run: |
-          echo "===== last 200 lines of xcodebuild log ====="
-          tail -n 200 /tmp/xcodebuild_logs/*.log 2>/dev/null || echo "(no xcodebuild log found)"
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="UTF-8"?>' \
+            '<plist version="1.0">' \
+            '<dict>' \
+            '<key>method</key><string>app-store</string>' \
+            '<key>signingStyle</key><string>automatic</string>' \
+            '<key>teamID</key><string>8WJ2MA2C78</string>' \
+            '<key>uploadSymbols</key><true/>' \
+            '</dict>' \
+            '</plist>' > /tmp/ExportOptions.plist
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
       - name: Upload to TestFlight
         run: |
-          app-store-connect publish --path "build/ios/ipa/*.ipa" --testflight
+          app-store-connect publish --path "$RUNNER_TEMP/export/*.ipa" --testflight
       - name: Upload IPA artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ipa
-          path: build/ios/ipa/*.ipa
+          path: ${{ runner.temp }}/export/*.ipa
           if-no-files-found: ignore

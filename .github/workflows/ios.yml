@@ -57,21 +57,35 @@ jobs:
             CODE_SIGN_STYLE=Automatic \
             archive
 
-      - name: Export IPA (manual, using installed App Store profile)
+      - name: Export IPA (manual, using the profile embedded in the archive)
         run: |
-          PROF_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
           PROFILE_NAME=""
-          for f in "$PROF_DIR"/*.mobileprovision; do
-            [ -e "$f" ] || continue
-            security cms -D -i "$f" -o /tmp/p.plist 2>/dev/null || continue
-            appid=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" /tmp/p.plist 2>/dev/null)
-            gta=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:get-task-allow" /tmp/p.plist 2>/dev/null)
-            name=$(/usr/libexec/PlistBuddy -c "Print :Name" /tmp/p.plist 2>/dev/null)
-            case "$appid" in
-              *"$BUNDLE_ID")
-                if [ "$gta" != "true" ]; then PROFILE_NAME="$name"; break; fi ;;
-            esac
-          done
+          # 1) Most reliable: read the profile embedded in the just-built archive
+          APP_DIR=$(ls -d "$RUNNER_TEMP"/app.xcarchive/Products/Applications/*.app 2>/dev/null | head -1)
+          EMB="$APP_DIR/embedded.mobileprovision"
+          if [ -f "$EMB" ]; then
+            security cms -D -i "$EMB" -o /tmp/p.plist 2>/dev/null \
+              && PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" /tmp/p.plist 2>/dev/null)
+          fi
+          # 2) Fallback: scan both known provisioning-profile directories
+          if [ -z "$PROFILE_NAME" ]; then
+            for PROF_DIR in \
+              "$HOME/Library/MobileDevice/Provisioning Profiles" \
+              "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+              [ -d "$PROF_DIR" ] || continue
+              for f in "$PROF_DIR"/*.mobileprovision "$PROF_DIR"/*.provisionprofile; do
+                [ -e "$f" ] || continue
+                security cms -D -i "$f" -o /tmp/p.plist 2>/dev/null || continue
+                appid=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" /tmp/p.plist 2>/dev/null)
+                gta=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:get-task-allow" /tmp/p.plist 2>/dev/null)
+                name=$(/usr/libexec/PlistBuddy -c "Print :Name" /tmp/p.plist 2>/dev/null)
+                case "$appid" in
+                  *"$BUNDLE_ID")
+                    if [ "$gta" != "true" ]; then PROFILE_NAME="$name"; break 2; fi ;;
+                esac
+              done
+            done
+          fi
           echo "Selected provisioning profile: $PROFILE_NAME"
           if [ -z "$PROFILE_NAME" ]; then echo "No distribution profile found"; exit 1; fi
           printf '%s\n' \

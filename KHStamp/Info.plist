@@ -2,12 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Capture Audio by user request</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Track current location by user request</string>
+	<string>현재 위치를 기반으로 가까운 국가유산을 거리순으로 정렬하고, 선택한 국가유산의 스탬프 위치까지 걸어서 길을 안내하기 위해 사용합니다. 위치 정보는 기기에서만 사용되며 서버에 저장하지 않습니다.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Capture Video by user request</string>
+	<string>방문한 국가유산을 인증하는 사진과 프로필 사진을 직접 촬영하여 등록하기 위해 카메라를 사용합니다. 예: 방문 현장에서 셀피나 국가유산 사진을 찍어 방문 기록에 첨부합니다.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
